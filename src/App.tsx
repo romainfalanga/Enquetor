@@ -1,108 +1,69 @@
 import { useEffect } from 'react';
-import { useInvestigationStore } from './store/investigationStore';
-import Sidebar from './components/layout/Sidebar';
-import FilterBar from './components/layout/FilterBar';
-import DetailPanel from './components/shared/DetailPanel';
-import GraphView from './components/graph/GraphView';
-import TimelineView from './components/timeline/TimelineView';
-import MapView from './components/map/MapView';
-import HypothesesView from './components/hypotheses/HypothesesView';
-import TodosView from './components/todos/TodosView';
-import type { ViewType } from './types';
-import {
-  Network,
-  Clock,
-  Map,
-  Lightbulb,
-  CheckSquare,
-  Menu,
-} from 'lucide-react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useAuthStore } from './store/authStore';
+import { isSupabaseConfigured } from './lib/supabase';
+import AppNavbar from './components/social/AppNavbar';
+import AuthGuard from './components/auth/AuthGuard';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import HomePage from './pages/HomePage';
+import ExplorePage from './pages/ExplorePage';
+import ProfilePage from './pages/ProfilePage';
+import InvestigationPage from './pages/InvestigationPage';
+import NotificationsPage from './pages/NotificationsPage';
+import WorkPage from './pages/WorkPage';
 import './App.css';
 
-const MOBILE_NAV_ITEMS: { view: ViewType; label: string; icon: React.ReactNode }[] = [
-  { view: 'graph', label: 'Graphe', icon: <Network size={20} /> },
-  { view: 'timeline', label: 'Chrono', icon: <Clock size={20} /> },
-  { view: 'map', label: 'Carte', icon: <Map size={20} /> },
-  { view: 'hypotheses', label: 'Hypo.', icon: <Lightbulb size={20} /> },
-  { view: 'todos', label: 'Pistes', icon: <CheckSquare size={20} /> },
-];
+function AppContent() {
+  const configured = isSupabaseConfigured();
+  const initialize = useAuthStore((s) => s.initialize);
 
-function App() {
-  const {
-    activeView,
-    sidebarOpen,
-    detailPanelOpen,
-    toggleSidebar,
-    setActiveView,
-  } = useInvestigationStore();
-
-  // Close sidebar on mobile on initial load
   useEffect(() => {
-    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
-    if (isMobile && useInvestigationStore.getState().sidebarOpen) {
-      useInvestigationStore.getState().toggleSidebar();
+    if (configured) {
+      initialize();
     }
-  }, []);
+  }, [configured]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleMobileNavClick = (view: ViewType) => {
-    setActiveView(view);
-    if (sidebarOpen && window.innerWidth < 1024) {
-      toggleSidebar();
-    }
-  };
-
-  const renderView = () => {
-    switch (activeView) {
-      case 'graph':
-        return <GraphView />;
-      case 'timeline':
-        return <TimelineView />;
-      case 'map':
-        return <MapView />;
-      case 'hypotheses':
-        return <HypothesesView />;
-      case 'todos':
-        return <TodosView />;
-      default:
-        return <GraphView />;
-    }
-  };
+  // If Supabase is not configured, go directly to the work page (offline mode)
+  if (!configured) {
+    return (
+      <Routes>
+        <Route path="*" element={<WorkPage />} />
+      </Routes>
+    );
+  }
 
   return (
-    <div className={`app ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
-      {/* Sidebar backdrop for mobile overlay */}
-      <div className="sidebar-backdrop" onClick={toggleSidebar} />
+    <>
+      <AppNavbar />
+      <div className="page-container">
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/investigation/:id" element={<InvestigationPage />} />
+          <Route path="/investigation/:id/work" element={
+            <AuthGuard><WorkPage /></AuthGuard>
+          } />
+          <Route path="/profile/:username" element={<ProfilePage />} />
+          <Route path="/notifications" element={
+            <AuthGuard><NotificationsPage /></AuthGuard>
+          } />
+          <Route path="/" element={
+            <AuthGuard><HomePage /></AuthGuard>
+          } />
+          <Route path="/work" element={<WorkPage />} />
+        </Routes>
+      </div>
+    </>
+  );
+}
 
-      <Sidebar />
-      <main className="main-content">
-        <FilterBar />
-        <div className="content-area">
-          {renderView()}
-          {detailPanelOpen && <DetailPanel />}
-        </div>
-      </main>
-
-      {/* Mobile bottom navigation */}
-      <nav className="mobile-bottom-nav">
-        {MOBILE_NAV_ITEMS.map(({ view, label, icon }) => (
-          <button
-            key={view}
-            className={`mobile-nav-item ${activeView === view ? 'active' : ''}`}
-            onClick={() => handleMobileNavClick(view)}
-          >
-            {icon}
-            <span>{label}</span>
-          </button>
-        ))}
-        <button
-          className="mobile-nav-item"
-          onClick={toggleSidebar}
-        >
-          <Menu size={20} />
-          <span>Menu</span>
-        </button>
-      </nav>
-    </div>
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 

@@ -12,6 +12,7 @@ import type {
   ConfidenceLevel,
   InvestigationStatus,
 } from '../types';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface Filters {
   entityTypes: EntityType[];
@@ -76,6 +77,11 @@ interface InvestigationState {
   // Import / Export
   exportData: () => string;
   importData: (json: string) => void;
+
+  // Supabase
+  supabaseId: string | null;
+  loadFromSupabase: (investigationId: string) => Promise<void>;
+  saveToSupabase: () => Promise<void>;
 }
 
 const now = () => new Date().toISOString();
@@ -103,6 +109,7 @@ export const useInvestigationStore = create<InvestigationState>()(
   persist(
     (set, get) => ({
       investigation: createEmptyInvestigation(),
+      supabaseId: null,
       activeView: 'graph',
       selectedEntityId: null,
       selectedLinkId: null,
@@ -303,6 +310,121 @@ export const useInvestigationStore = create<InvestigationState>()(
           set({ investigation: data });
         } catch {
           console.error('Invalid JSON import');
+        }
+      },
+
+      // --- Supabase ---
+      loadFromSupabase: async (investigationId: string) => {
+        if (!isSupabaseConfigured()) return;
+
+        try {
+          const [
+            { data: inv },
+            { data: entities },
+            { data: links },
+            { data: hypotheses },
+            { data: leads },
+          ] = await Promise.all([
+            supabase.from('investigations').select('*').eq('id', investigationId).single(),
+            supabase.from('entities').select('*').eq('investigation_id', investigationId).order('created_at'),
+            supabase.from('links').select('*').eq('investigation_id', investigationId).order('created_at'),
+            supabase.from('hypotheses').select('*').eq('investigation_id', investigationId).order('created_at'),
+            supabase.from('leads').select('*').eq('investigation_id', investigationId).order('created_at'),
+          ]);
+
+          if (inv) {
+            // Map snake_case DB rows to camelCase local types
+            const mappedEntities: Entity[] = (entities || []).map((e: Record<string, unknown>) => ({
+              id: e.id as string,
+              type: e.type as Entity['type'],
+              label: (e.label as string) || '',
+              description: (e.description as string) || '',
+              properties: (e.properties as Record<string, string>) || {},
+              confidence: e.confidence as Entity['confidence'],
+              status: e.status as Entity['status'],
+              provenance: (e.provenance as Entity['provenance']) || { sourceType: 'other', sourceRef: '', importedBy: '', importedAt: now() },
+              timestamp: e.timestamp as string | undefined,
+              coordinates: e.coordinates as Entity['coordinates'],
+              tags: (e.tags as string[]) || [],
+              createdAt: e.created_at as string,
+              updatedAt: e.updated_at as string,
+            }));
+
+            const mappedLinks: Link[] = (links || []).map((l: Record<string, unknown>) => ({
+              id: l.id as string,
+              type: l.type as Link['type'],
+              sourceId: l.source_id as string,
+              targetId: l.target_id as string,
+              label: (l.label as string) || '',
+              description: (l.description as string) || '',
+              confidence: l.confidence as Link['confidence'],
+              status: l.status as Link['status'],
+              provenance: (l.provenance as Link['provenance']) || { sourceType: 'other', sourceRef: '', importedBy: '', importedAt: now() },
+              timestamp: l.timestamp as string | undefined,
+              tags: (l.tags as string[]) || [],
+              createdAt: l.created_at as string,
+              updatedAt: l.updated_at as string,
+            }));
+
+            const mappedHypotheses: Hypothesis[] = (hypotheses || []).map((h: Record<string, unknown>) => ({
+              id: h.id as string,
+              title: (h.title as string) || '',
+              description: (h.description as string) || '',
+              status: (h.status as Hypothesis['status']) || 'active',
+              supportingEntityIds: (h.supporting_entity_ids as string[]) || [],
+              supportingLinkIds: (h.supporting_link_ids as string[]) || [],
+              contradictingEntityIds: (h.contradicting_entity_ids as string[]) || [],
+              contradictingLinkIds: (h.contradicting_link_ids as string[]) || [],
+              parentHypothesisId: h.parent_hypothesis_id as string | undefined,
+              createdAt: h.created_at as string,
+              updatedAt: h.updated_at as string,
+            }));
+
+            const mappedLeads: Lead[] = (leads || []).map((l: Record<string, unknown>) => ({
+              id: l.id as string,
+              title: (l.title as string) || '',
+              description: (l.description as string) || '',
+              priority: (l.priority as Lead['priority']) || 'medium',
+              status: (l.status as Lead['status']) || 'open',
+              relatedEntityIds: (l.related_entity_ids as string[]) || [],
+              relatedLinkIds: (l.related_link_ids as string[]) || [],
+              assignedTo: l.assigned_to as string | undefined,
+              dueDate: l.due_date as string | undefined,
+              createdAt: l.created_at as string,
+              updatedAt: l.updated_at as string,
+            }));
+
+            set({
+              investigation: {
+                id: inv.id,
+                name: inv.name,
+                description: inv.description || '',
+                entities: mappedEntities,
+                links: mappedLinks,
+                hypotheses: mappedHypotheses,
+                leads: mappedLeads,
+                createdAt: inv.created_at,
+                updatedAt: inv.updated_at,
+              },
+              supabaseId: investigationId,
+            });
+          }
+        } catch (err) {
+          console.error('Failed to load from Supabase:', err);
+        }
+      },
+
+      saveToSupabase: async () => {
+        const { investigation, supabaseId } = get();
+        if (!isSupabaseConfigured() || !supabaseId) return;
+
+        try {
+          await supabase
+            .from('investigations')
+            .update({ name: investigation.name, description: investigation.description, updated_at: now() })
+            .eq('id', supabaseId);
+        } catch (err) {
+          console.error('Failed to save to Supabase:', err);
         }
       },
     }),
