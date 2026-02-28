@@ -271,12 +271,14 @@ export const useInvestigationStore = create<InvestigationState>()(
           if (filters.statuses.length > 0 && !filters.statuses.includes(e.status)) return false;
           if (filters.dateFrom && e.timestamp && e.timestamp < filters.dateFrom) return false;
           if (filters.dateTo && e.timestamp && e.timestamp > filters.dateTo) return false;
-          if (
-            filters.searchQuery &&
-            !e.label.toLowerCase().includes(filters.searchQuery.toLowerCase()) &&
-            !e.description.toLowerCase().includes(filters.searchQuery.toLowerCase())
-          )
-            return false;
+          if (filters.searchQuery) {
+            const q = filters.searchQuery.toLowerCase();
+            const matchLabel = e.label.toLowerCase().includes(q);
+            const matchDesc = e.description.toLowerCase().includes(q);
+            const matchTags = e.tags.some(t => t.toLowerCase().includes(q));
+            const matchProps = Object.values(e.properties).some(v => v.toLowerCase().includes(q));
+            if (!matchLabel && !matchDesc && !matchTags && !matchProps) return false;
+          }
           return true;
         });
       },

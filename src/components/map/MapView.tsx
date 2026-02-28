@@ -7,7 +7,7 @@ import {
   ENTITY_COLORS,
   CONFIDENCE_LABELS,
 } from '../../types';
-import { Plus, Target } from 'lucide-react';
+import { Plus, Target, X } from 'lucide-react';
 import EntityForm from '../shared/EntityForm';
 
 // Fix Leaflet default marker icons
@@ -77,7 +77,6 @@ export default function MapView() {
         <div className="view-actions">
           <div className="radius-control">
             <Target size={14} />
-            <label>Rayon :</label>
             <input
               type="number"
               value={radiusMeters}
@@ -86,6 +85,7 @@ export default function MapView() {
               max={10000}
               step={100}
               className="radius-input"
+              title="Rayon en m\u00e8tres"
             />
             <span>m</span>
             {radiusCenter && (
@@ -93,13 +93,13 @@ export default function MapView() {
                 className="btn btn-sm btn-ghost"
                 onClick={() => setRadiusCenter(null)}
               >
-                Effacer
+                <X size={14} />
               </button>
             )}
           </div>
           <button className="btn btn-sm btn-primary" onClick={() => setShowEntityForm(true)}>
             <Plus size={14} />
-            Lieu
+            <span className="btn-label-desktop">Lieu</span>
           </button>
         </div>
       </div>
