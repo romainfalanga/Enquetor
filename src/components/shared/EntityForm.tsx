@@ -6,6 +6,7 @@ import {
   STATUS_LABELS,
 } from '../../types';
 import type {
+  Entity,
   EntityType,
   ConfidenceLevel,
   InvestigationStatus,
@@ -15,6 +16,7 @@ import { X, Plus, Trash2 } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
+  editEntity?: Entity;
 }
 
 const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
@@ -27,24 +29,30 @@ const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   other: 'Autre',
 };
 
-export default function EntityForm({ onClose }: Props) {
+export default function EntityForm({ onClose, editEntity }: Props) {
   const addEntity = useInvestigationStore((s) => s.addEntity);
+  const updateEntity = useInvestigationStore((s) => s.updateEntity);
+  const isEditing = !!editEntity;
 
   const [form, setForm] = useState({
-    type: 'person' as EntityType,
-    label: '',
-    description: '',
-    confidence: 'unverified' as ConfidenceLevel,
-    status: 'to_investigate' as InvestigationStatus,
-    sourceType: 'pv' as SourceType,
-    sourceRef: '',
-    importedBy: '',
-    lat: '',
-    lng: '',
-    timestamp: '',
-    tags: '' as string,
+    type: (editEntity?.type || 'person') as EntityType,
+    label: editEntity?.label || '',
+    description: editEntity?.description || '',
+    confidence: (editEntity?.confidence || 'unverified') as ConfidenceLevel,
+    status: (editEntity?.status || 'to_investigate') as InvestigationStatus,
+    sourceType: (editEntity?.provenance.sourceType || 'pv') as SourceType,
+    sourceRef: editEntity?.provenance.sourceRef || '',
+    importedBy: editEntity?.provenance.importedBy || '',
+    lat: editEntity?.coordinates?.lat?.toString() || '',
+    lng: editEntity?.coordinates?.lng?.toString() || '',
+    timestamp: editEntity?.timestamp || '',
+    tags: editEntity?.tags.join(', ') || '' as string,
   });
-  const [properties, setProperties] = useState<{ key: string; value: string }[]>([]);
+  const [properties, setProperties] = useState<{ key: string; value: string }[]>(
+    editEntity
+      ? Object.entries(editEntity.properties).map(([key, value]) => ({ key, value }))
+      : []
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +63,7 @@ export default function EntityForm({ onClose }: Props) {
       if (key.trim()) props[key.trim()] = value;
     });
 
-    addEntity({
+    const entityData = {
       type: form.type,
       label: form.label,
       description: form.description,
@@ -66,7 +74,7 @@ export default function EntityForm({ onClose }: Props) {
         sourceType: form.sourceType,
         sourceRef: form.sourceRef,
         importedBy: form.importedBy || 'Utilisateur',
-        importedAt: new Date().toISOString(),
+        importedAt: editEntity?.provenance.importedAt || new Date().toISOString(),
       },
       timestamp: form.timestamp || undefined,
       coordinates:
@@ -77,7 +85,13 @@ export default function EntityForm({ onClose }: Props) {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
-    });
+    };
+
+    if (isEditing && editEntity) {
+      updateEntity(editEntity.id, entityData);
+    } else {
+      addEntity(entityData);
+    }
 
     onClose();
   };
@@ -86,7 +100,7 @@ export default function EntityForm({ onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Ajouter une entité</h3>
+          <h3>{isEditing ? 'Modifier l\u2019entité' : 'Ajouter une entité'}</h3>
           <button className="btn-icon" onClick={onClose}>
             <X size={18} />
           </button>
@@ -276,7 +290,7 @@ export default function EntityForm({ onClose }: Props) {
               Annuler
             </button>
             <button type="submit" className="btn btn-primary">
-              Ajouter
+              {isEditing ? 'Enregistrer' : 'Ajouter'}
             </button>
           </div>
         </form>

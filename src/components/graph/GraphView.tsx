@@ -197,7 +197,7 @@ export default function GraphView() {
         <div className="view-actions">
           <button className="btn btn-sm btn-primary" onClick={() => setShowEntityForm(true)}>
             <Plus size={14} />
-            Entité
+            Entit&eacute;
           </button>
           <button className="btn btn-sm btn-outline" onClick={() => setShowLinkForm(true)}>
             <Link2 size={14} />
