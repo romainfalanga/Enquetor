@@ -205,3 +205,89 @@ export const ENTITY_ICONS: Record<EntityType, string> = {
   observation: 'Eye',
   hypothesis: 'HelpCircle',
 };
+
+// ============================================
+// Social / Supabase Types
+// ============================================
+
+export type InvestigationVisibility = 'public' | 'private' | 'unlisted';
+
+export type InvestigationCategory =
+  | 'politics'
+  | 'environment'
+  | 'corporate'
+  | 'justice'
+  | 'health'
+  | 'education'
+  | 'media'
+  | 'technology'
+  | 'other';
+
+export const CATEGORY_LABELS: Record<InvestigationCategory, string> = {
+  politics: 'Politique',
+  environment: 'Environnement',
+  corporate: 'Entreprises',
+  justice: 'Justice',
+  health: 'Santé',
+  education: 'Éducation',
+  media: 'Médias',
+  technology: 'Technologie',
+  other: 'Autre',
+};
+
+export type MemberRole = 'owner' | 'admin' | 'contributor' | 'viewer';
+
+export interface Profile {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+  bio: string;
+  is_verified: boolean;
+  created_at: string;
+}
+
+export interface InvestigationRow {
+  id: string;
+  owner_id: string;
+  name: string;
+  description: string;
+  visibility: InvestigationVisibility;
+  category: InvestigationCategory;
+  tags: string[];
+  stars_count: number;
+  fork_of: string | null;
+  created_at: string;
+  updated_at: string;
+  owner?: Profile;
+}
+
+export interface InvestigationMember {
+  id: string;
+  investigation_id: string;
+  user_id: string;
+  role: MemberRole;
+  joined_at: string;
+  user?: Profile;
+}
+
+export interface Comment {
+  id: string;
+  investigation_id: string;
+  user_id: string;
+  content: string;
+  parent_id: string | null;
+  created_at: string;
+  author?: Profile;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'star' | 'comment' | 'fork' | 'join' | 'mention';
+  title: string;
+  body: string;
+  link: string;
+  read: boolean;
+  created_at: string;
+}
